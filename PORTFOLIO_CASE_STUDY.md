@@ -1,75 +1,67 @@
-# RegimeLens — Institutional UI Edition
+# QuantRegimeTracer — technical case study
 
-## What changed in V9
-
-- Reworked the UI color system from generic AI-blue to an institutional fintech palette.
-- Added warm ivory backgrounds, deep navy authority colors and petrol-green analytical accents.
-- Muted risk colors for expansion, transition and stress regimes to make charts feel more like research tooling than a crypto dashboard.
-- Reduced bright blue Tailwind defaults across cards, badges, controls and chart strokes.
-- Preserved the V9 TypeScript frontend, bilingual UX and FastAPI/HMM backend.
-
-## One-line positioning
-
-**RegimeLens turns noisy market time series into structured regime intelligence through HMMs, Markov transition analysis, validation baselines and guarded LangGraph-style memos.**
-
-## What V9 adds
-
-V9 does not add uncontrolled model complexity. It upgrades the product/code quality layer:
-
-- React frontend migrated from JavaScript to TypeScript
-- Shared frontend contracts for analysis, comparison, memos and project-card payloads
-- Typed API client for FastAPI responses
-- Build pipeline now runs `tsc -b && vite build`
-- Vite config migrated to TypeScript
-- Tailwind remains pinned to v3.4.17 for stable Windows setup
-- Bilingual EN/ES memo UX from V6 preserved
-- Cross-asset comparison from V5 preserved
+QuantRegimeTracer is a real-market-data-first regime inference workbench. It converts market price histories into inferred latent regimes, Markov transition diagnostics, validation evidence, point-level traceback explanations and guarded review memos.
 
 ## Problem
 
-Market dashboards often show price, volatility and indicators without explaining regime uncertainty. Simple volatility thresholds are transparent but shallow; HMMs capture latent state structure but can become opaque. RegimeLens combines both: infer hidden regimes, compare against a simple baseline, and generate a guarded memo that explains what the model sees and what it cannot claim.
+A raw price chart does not expose regime uncertainty, transition risk, model stability, data-source quality or the evidence path behind a regime label. QuantRegimeTracer builds a review layer that makes those assumptions inspectable.
 
 ## Architecture
 
-```txt
-Market data / CSV
-↓
-Feature engineering: returns, volatility, drawdown, momentum
-↓
-HMM-style regime detection
-↓
-Markov transition matrix
-↓
-Validation layer: baseline agreement, stability, data quality
-↓
-LangGraph-style memo workflow
-↓
-React + TypeScript dashboard
-```
+- FastAPI analysis backend.
+- Real data loader with yfinance, local cache, explicit sample fallback mode and CSV uploads.
+- Feature engineering for returns, volatility, drawdown, trend and momentum.
+- Gaussian HMM regime engine with explicit KMeans fallback if HMM fitting is unavailable.
+- Post-fit semantic labeling to avoid hard-coded HMM state IDs.
+- Empirical Markov transition matrix and persistence metrics.
+- Validation layer with baseline suite, temporal holdout, BIC/AIC and multi-seed ARI stability.
+- Regime Traceback layer that reconstructs feature evidence, posterior uncertainty, transition prior and baseline agreement for selected dates.
+- React/TypeScript UI for source-aware analysis, traceback inspection and export.
 
-## Why TypeScript matters here
+## Guardrails
 
-The frontend consumes nested, high-variance outputs: regime stats, transition matrices, memo sections, comparison rows and model-card metadata. TypeScript makes those contracts explicit and improves maintainability. The project now communicates a cleaner full-stack split:
+- No buy/sell instructions.
+- No autonomous execution.
+- Source report identifies whether the run is real-data backed.
+- Sample fallback is explicit and visible.
+- Model diagnostics are separated from trading validation.
 
-- **Python**: modeling, analysis, API, memo generation
-- **TypeScript**: product UI, API contracts, interaction layer
 
-## Portfolio value
+## Real-data validation evidence
 
-RegimeLens demonstrates:
+A validation bundle was generated with `data_mode=real` across SPY, QQQ, BTC-USD, GLD and TLT. The run used yfinance-backed market data, `GaussianHMM` inference, baseline-suite comparison, chronological train/test diagnostics and multi-seed stability review.
 
-- time-series modeling
-- probabilistic regime reasoning
-- Markov transition analysis
-- validation against simple baselines
-- bilingual executive memo UX
-- frontend product thinking
-- typed full-stack API boundaries
-- risk communication with guardrails
+The most important result is not that every asset looked clean. The useful result is that the validation layer surfaced review points:
+
+- all five assets were real-backed and successfully analyzed;
+- the default `k=3` interpretability setting differed from the BIC recommendation of `k=5` across the evaluated assets;
+- QQQ showed only moderate assignment stability across HMM seeds;
+- GLD was flagged as an overfit-risk case in temporal holdout diagnostics.
+
+This makes the project more credible: the system is allowed to say "review this" instead of forcing every output into a confident regime story.
+
+## Case study: when validation detects model risk
+
+The GLD run is a useful example of why the validation layer exists.
+
+The HMM produced a latent-state assignment, but the temporal holdout diagnostics flagged `overfit_risk`: train likelihood was much stronger than held-out likelihood, suggesting that the model fit the training window far better than the test window.
+
+A simpler dashboard might still show a regime label and move on. QuantRegimeTracer keeps the label, but attaches the warning: the assignment may be mathematically available, yet the model's temporal generalization is weak for that asset/window.
+
+The system therefore separates:
+
+- state assignment strength;
+- posterior concentration;
+- baseline agreement;
+- multi-seed stability;
+- temporal generalization;
+- and final interpretability.
+
+This is why the project avoids presenting HMM output as a trading signal. The validation layer can disagree with the visual regime path, and that disagreement is part of the output.
 
 ## Limitations
 
-- Regimes are inferred states, not ground-truth labels.
-- Transition probabilities are historical estimates over inferred state paths.
-- The app does not provide buy/sell recommendations.
-- The HMM fallback exists for demo continuity, not production-grade modeling.
+- HMM regimes are latent, not ground truth.
+- yfinance availability is external.
+- No PnL backtest, slippage model or execution assumptions are included.
+- Markov transition estimates can decay under structural change.
