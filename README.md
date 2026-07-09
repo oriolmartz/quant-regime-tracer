@@ -72,11 +72,11 @@ QuantRegimeTracer answers those questions through an end-to-end backend + fronte
 
 ## Screenshots
 
-### 1. Real-data analysis entry point
+### 1. Real-data analysis setup
 
-![QuantRegimeTracer hero](assets/screenshots/hero-real-spy.png)
+![Real-data analysis setup](assets/screenshots/analysis-entrypoint-real-spy.png)
 
-QuantRegimeTracer starts from real market data and frames market-regime analysis as an auditable inference workflow rather than a trading-signal dashboard.
+The analysis setup exposes the asset, window, custom start date, regime count, data mode, force-refresh policy and export actions. This makes the data policy visible before the model output is interpreted.
 
 ### 2. Price path with inferred regimes
 
@@ -86,13 +86,17 @@ The dashboard overlays inferred latent regimes on the real SPY price path. Regim
 
 ### 3. Model diagnostics and feature map
 
-![Model diagnostics and feature map](assets/screenshots/regime-feature-map-spy.png)
+<p align="center">
+  <img src="assets/screenshots/regime-feature-map-spy.png" alt="Model diagnostics and feature map" width="82%">
+</p>
 
 The diagnostic layer shows the feature set used by the regime engine and compares inferred states by volatility, drawdown and return profile. This makes semantic regime labels auditable instead of treating them as manually assigned classes.
 
 ### 4. Regime Traceback: evidence behind the label
 
-![Regime Traceback](assets/screenshots/traceback-real-spy.png)
+<p align="center">
+  <img src="assets/screenshots/traceback-real-spy.png" alt="Regime Traceback" width="72%">
+</p>
 
 Regime Traceback reconstructs the evidence path behind a selected date: assigned state, evidence strength, assignment type, posterior entropy, Markov transition prior, baseline agreement and feature-level evidence.
 
@@ -224,7 +228,7 @@ $$
 Rolling annualized volatility:
 
 $$
-\sigma_t = \operatorname{std}(r_{t-w:t}) \sqrt{252}
+\sigma_t = \mathrm{std}(r_{t-w:t}) \sqrt{252}
 $$
 
 Drawdown:
@@ -254,7 +258,7 @@ The model is not trained on raw prices directly; it operates on normalized risk 
 The regime engine fits a Gaussian Hidden Markov Model when `hmmlearn` is available:
 
 $$
-z_t \sim \operatorname{Categorical}(A_{z_{t-1}})
+z_t \sim \mathrm{Categorical}(A_{z_{t-1}})
 $$
 
 $$
@@ -267,6 +271,40 @@ Where:
 - \(z_t\) is the latent regime state;
 - \(A\) is the transition matrix;
 - \(\mu_i, \Sigma_i\) define each state emission distribution.
+
+### How the HMM is used
+
+The HMM treats market behavior as a sequence of **unobserved latent states**. The model does not receive labels such as `bull`, `stress`, or `sideways`. Instead, it observes engineered features such as volatility, drawdown, momentum and RSI, then estimates which hidden state most likely generated each observation.
+
+At each timestamp, the model combines two sources of information:
+
+1. **Emission likelihood** — how compatible the current feature vector is with each state's Gaussian distribution.
+2. **Transition structure** — how likely the model is to move from the previous latent state to the next one.
+
+The posterior state mass is computed over the full observation sequence:
+
+$$
+\gamma_t(i) = P(z_t = i \mid x_{1:T})
+$$
+
+The displayed state is the maximum-posterior assignment:
+
+$$
+\hat{z}_t = \arg\max_i \gamma_t(i)
+$$
+
+This means that a near-one-hot posterior is interpreted as **strong state assignment**, not as market forecast certainty. A high posterior state mass says that the current feature vector is strongly mapped to one latent state under the fitted model; it does not say that the future price path is known.
+
+### Why label switching matters
+
+HMM state IDs are arbitrary. State `0` in one fit may correspond to a different economic interpretation in another fit. QuantRegimeTracer therefore applies a post-fit semantic labeling layer: it ranks states by realized volatility, drawdown, mean return, persistence and stress-transition behavior before assigning readable labels.
+
+This is why the UI always shows both:
+
+```text
+State ID          raw latent-state identifier
+Semantic label    post-fit interpretation from state statistics
+```
 
 If the HMM cannot be fitted, the backend falls back to deterministic KMeans continuity and clearly flags the fallback in the API response. The fallback is not presented as a probabilistic HMM posterior.
 
