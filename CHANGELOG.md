@@ -1,20 +1,44 @@
 # Changelog
 
-## V9 / 0.9.0 — Git-Ready Edition
+## Real-data evidence documentation pass
 
-- Added backend pytest suite covering data loading, uploaded CSV validation, feature engineering, risk metrics, validation layer and API endpoints.
-- Updated smoke test and API version to `0.9.0`.
-- Removed generated artifacts from the distributable: `node_modules`, `dist`, `.cache`, bytecode, pytest cache and TypeScript build info.
-- Sanitized README and Windows setup docs so no personal local path is exposed.
-- Made frontend Docker build reproducible with `package-lock.json` + `npm ci`.
-- Upgraded Vite / plugin-react / PostCSS and verified `npm audit --omit=dev` reports zero vulnerabilities.
-- Fixed Tailwind typo in timeline regime dots.
-- Replaced remaining generic blue transition-matrix heat color with the product accent palette.
-- Reduced hero vertical spacing for a tighter first viewport.
-- Tightened the most visible TypeScript contracts, especially comparison data and typed tab icons.
+- Added generated real-data validation artifacts under `reports/`.
+- Documented the SPY/QQQ/BTC-USD/GLD/TLT validation bundle in the README.
+- Added explicit interpretation of the systematic `k=3` selected versus `k=5` BIC-recommended mismatch.
+- Documented GLD as an overfit-risk case where the validation layer correctly warns against over-interpreting the regime path.
+- Documented QQQ as a moderate-stability case where multi-seed HMM assignments should be interpreted cautiously.
+- Updated the case study to frame validation disagreement as a core product feature rather than a defect to hide.
 
-Known follow-ups:
+## QuantRegimeTracer traceback release
 
-- Add real screenshots/GIFs under `assets/screenshots/` after running the UI locally.
-- Consider code-splitting the frontend bundle if production performance becomes a priority.
-- Move to `strict: true` in TypeScript gradually; current V9 keeps the previous non-strict setting to avoid a broad refactor.
+- Renamed the project identity to QuantRegimeTracer.
+- Added Regime Traceback backend service for point-level evidence reconstruction.
+- Added `current_traceback`, `traceback` and `traceback_points` to analysis responses.
+- Added Traceback UI tab with feature evidence, posterior state mass, posterior entropy, Markov transition prior and baseline votes.
+- Updated README/API docs around auditable regime inference rather than generic dashboard positioning.
+- Added backend tests for traceback evidence and transition-prior consistency.
+
+## Real-data-first release
+
+- Changed default data policy to `data_mode='real'`.
+- Added explicit data modes: `real`, `auto`, `sample`.
+- Added `/data-sources` endpoint documenting data-source behavior.
+- Added `source_report` to analysis responses.
+- Added real-only failure behavior: HTTP 502 when cache/yfinance cannot produce enough observations.
+- Kept deterministic sample mode for tests and offline reproducibility.
+- Updated frontend controls with data-mode selector and force-refresh option.
+- Updated README and API docs to emphasize real market data, model diagnostics and technical risk review.
+
+## Prior validation release
+
+- Added temporal HMM diagnostics with chronological holdout, AIC/BIC and held-out log-likelihood.
+- Added multi-seed HMM assignment stability review with Adjusted Rand Index.
+- Added baseline suite: rolling volatility, EWMA volatility and drawdown stress.
+- Added posterior entropy and richer posterior state mass visualization.
+
+## Traceability UI correctness pass
+
+- Replaced visible `100%` posterior badge in the latest-assignment panel with assignment-shape language and MAP-state-mass detail.
+- Clarified that posterior state mass is not forecast confidence or market certainty.
+- Aligned the custom start date control with the rest of the analysis controls.
+- Added `docs/VALIDATION_PROTOCOL.md` to document how to validate model correctness, data provenance, traceback behavior and product behavior before publishing or review.
