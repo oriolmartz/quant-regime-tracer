@@ -257,7 +257,7 @@ The model is not trained on raw prices directly; it operates on normalized risk 
 
 ## Regime inference
 
-The regime engine fits a Gaussian Hidden Markov Model when `hmmlearn` is available:
+The regime engine fits a Gaussian Hidden Markov Model through `hmmlearn.GaussianHMM` when the dependency is available. QuantRegimeTracer does **not** implement Baum-Welch from scratch; the project focuses on the surrounding market-state workbench: financial feature engineering, validation diagnostics, fallback handling, traceback, reporting and UI.
 
 $$
 z_t \sim \mathrm{Categorical}(A_{z_{t-1}})
@@ -505,7 +505,7 @@ selected k=3
 See:
 
 ```text
-reports/REAL_DATA_VALIDATION.md
+reports/real_data_validation.md
 reports/real_data_validation.json
 ```
 
@@ -632,7 +632,7 @@ python scripts/real_data_validation.py \
 Expected outputs:
 
 ```text
-reports/REAL_DATA_VALIDATION.md
+reports/real_data_validation.md
 reports/real_data_validation.json
 ```
 
@@ -687,14 +687,20 @@ npm audit --omit=dev: 0 vulnerabilities
 backend/
   app/
     main.py
-    schemas.py
+    models/
+      schemas.py
     services/
       data_loader.py
       features.py
       regime_model.py
+      model_evaluation.py
+      risk_metrics.py
       validation.py
       traceback.py
+    graphs/
       memo_graph.py
+    utils/
+      serialization.py
   scripts/
     real_data_validation.py
     smoke_test.py
@@ -721,7 +727,7 @@ docs/
   WINDOWS_SETUP.md
 
 reports/
-  REAL_DATA_VALIDATION.md
+  real_data_validation.md
   real_data_validation.json
 
 assets/

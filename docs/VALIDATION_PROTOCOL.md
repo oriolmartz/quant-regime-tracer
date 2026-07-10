@@ -189,7 +189,7 @@ This makes the project reviewable without asking a recruiter or interviewer to c
 The repository includes a generated real-data validation bundle:
 
 ```text
-reports/REAL_DATA_VALIDATION.md
+reports/real_data_validation.md
 reports/real_data_validation.md
 reports/real_data_validation.json
 ```

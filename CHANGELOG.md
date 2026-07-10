@@ -51,3 +51,9 @@
 - Clarified that posterior state mass is not forecast confidence or market certainty.
 - Aligned the custom start date control with the rest of the analysis controls.
 - Added `docs/VALIDATION_PROTOCOL.md` to document how to validate model correctness, data provenance, traceback behavior and product behavior before publishing or review.
+
+## Documentation polish
+
+- Fixed case-sensitive report references to `reports/real_data_validation.md`.
+- Updated the README repository tree to match the actual backend package layout.
+- Clarified that HMM fitting uses `hmmlearn.GaussianHMM`; the project contribution is the feature, validation, traceback, reporting and UI layer around it.
