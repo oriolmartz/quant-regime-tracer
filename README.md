@@ -193,6 +193,8 @@ flowchart TD
 | `sample` | Uses deterministic synthetic regime-switching data | N/A | Unit tests, reproducible development, offline examples |
 | `uploaded_csv` | User-supplied `date, close, volume?` CSV | N/A | Custom datasets |
 
+Available preset windows are `6M`, `1Y`, `2Y`, `3Y`, `5Y` and `MAX`. Explicit start/end dates override the preset.
+
 The API response includes a `source_report` object. A run should not be treated as real-market backed unless:
 
 ```text
@@ -228,7 +230,7 @@ $$
 Rolling annualized volatility:
 
 $$
-\sigma_t = \mathrm{std}(r_{t-w:t}) \sqrt{252}
+\sigma_t = \mathrm{std}(r_{t-w:t}) \sqrt{N_{year}}
 $$
 
 Drawdown:
@@ -250,6 +252,18 @@ RSI_t = 100 - \frac{100}{1 + RS_t}
 $$
 
 The model is not trained on raw prices directly; it operates on normalized risk and trend features.
+
+### Calendar-aware annualization
+
+Annualized return and volatility are not hard-coded to 252 observations for every asset. QuantRegimeTracer infers an annualization profile from the timestamps supplied to the run:
+
+- exchange-traded daily series are stabilized at approximately `252` periods/year;
+- seven-day daily series are stabilized at `365` periods/year;
+- six-day, FX-like, weekly or uploaded custom calendars use their observed timestamp frequency.
+
+The same inferred factor is propagated through rolling volatility, rolling mean return, regime statistics, EWMA baselines, risk metrics, traceback evidence and the exported memo. The API exposes it as `risk_metrics.annualization_factor`, together with the inferred calendar and method.
+
+This means BTC/ETH data with weekend observations are annualized on a seven-day calendar, while SPY/QQQ/equities use an exchange calendar. The decision is driven by the actual dates rather than by a ticker whitelist.
 
 ---
 
@@ -396,6 +410,42 @@ The UI separates:
 | Evidence strength | Composite traceability score |
 | Risk score | Review-oriented risk diagnostic |
 | Forecast confidence | Not claimed |
+
+### Dashboard metric definitions
+
+The dashboard separates latent-state assignment, Markov dynamics, independent validation and heuristic risk diagnostics.
+
+| Metric | Interpretation |
+|---|---|
+| Current regime | Semantic label assigned after fitting from the statistical profile of the current latent state. State IDs themselves are arbitrary. |
+| Assignment type | Describes how concentrated the posterior state mass is. `Near one-hot` means one latent state dominates the posterior; it is not directional market certainty. |
+| Evidence strength | Composite traceability score combining assignment sharpness, baseline agreement, multi-seed stability, model-selection alignment and data quality. It is not a probability that the regime is objectively correct. |
+| Risk score | Bounded heuristic diagnostic combining stress-transition probability, current volatility, drawdown pressure and a small regime-label adjustment. It is not crash probability, VaR or expected loss. |
+| Stay probability | Estimated one-step Markov probability $P_{ii}$ of remaining in the current latent state. |
+| Stress transition | Estimated one-step probability of moving from the current state into the state semantically labelled as high-volatility stress. It is not the probability of a market crash. |
+| Baseline agreement | Share of observations where the HMM stress classification agrees with transparent volatility and drawdown rules. |
+
+Baseline-agreement verdicts are:
+
+```text
+aligned     agreement >= 72%
+mixed       55% <= agreement < 72%
+divergent   agreement < 55%
+```
+
+Therefore, a value such as `64% · mixed` means that the HMM and the transparent baseline suite agree on roughly 64% of the analysed observations. Disagreement is surfaced explicitly rather than hidden.
+
+The dashboard evidence-strength score uses these weights:
+
+- 26% assignment sharpness;
+- 24% baseline agreement;
+- 20% multi-seed stability;
+- 15% model-selection alignment;
+- 15% data quality.
+
+Assignment sharpness combines posterior entropy and MAP posterior mass. The score is intended for traceability and review, not as a calibrated probability.
+
+The risk score weights stress-transition probability most heavily, followed by realized volatility and drawdown pressure, with a small semantic-label adjustment for transition-like or stress-like regimes.
 
 ---
 

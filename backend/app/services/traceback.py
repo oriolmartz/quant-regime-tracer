@@ -5,6 +5,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from app.services.annualization import annualization_factor_from_frame
+
 
 def _safe_float(value: Any, default: float | None = None) -> float | None:
     try:
@@ -71,7 +73,8 @@ def _baseline_votes(frame: pd.DataFrame, idx: int, hmm_is_stress: bool) -> list[
     log_return = pd.to_numeric(frame["log_return"], errors="coerce").fillna(0.0)
 
     vol_threshold = float(rolling_vol.quantile(0.80)) if len(rolling_vol) else 0.0
-    ewma_vol = log_return.ewm(span=30, adjust=False).std().bfill().fillna(0.0) * np.sqrt(252)
+    periods_per_year = annualization_factor_from_frame(frame)
+    ewma_vol = log_return.ewm(span=30, adjust=False).std().bfill().fillna(0.0) * np.sqrt(periods_per_year)
     ewma_threshold = float(ewma_vol.quantile(0.80)) if len(ewma_vol) else 0.0
     drawdown_threshold = float(drawdown.quantile(0.20)) if len(drawdown) else 0.0
 

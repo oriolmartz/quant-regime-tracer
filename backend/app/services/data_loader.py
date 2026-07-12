@@ -23,7 +23,7 @@ SUPPORTED_ASSETS = [
     "GLD",
     "TLT",
 ]
-WINDOW_PRESETS = ["6M", "1Y", "3Y", "5Y", "MAX"]
+WINDOW_PRESETS = ["6M", "1Y", "2Y", "3Y", "5Y", "MAX"]
 DATA_MODES = ["real", "auto", "sample"]
 DEFAULT_START = date(2021, 1, 1)
 CACHE_DIR = Path(__file__).resolve().parents[3] / ".cache" / "market_data"
@@ -66,6 +66,8 @@ def resolve_window(start: Optional[date], end: Optional[date], interval: Optiona
         start_date = end_date - timedelta(days=183)
     elif normalized == "1Y":
         start_date = end_date - timedelta(days=365)
+    elif normalized == "2Y":
+        start_date = end_date - timedelta(days=365 * 2)
     elif normalized == "3Y":
         start_date = end_date - timedelta(days=365 * 3)
     elif normalized == "MAX":
@@ -76,12 +78,12 @@ def resolve_window(start: Optional[date], end: Optional[date], interval: Optiona
     return start_date, end_date, normalized
 
 
-def _date_range(start: Optional[date], end: Optional[date]) -> pd.DatetimeIndex:
+def _date_range(start: Optional[date], end: Optional[date], continuous: bool = False) -> pd.DatetimeIndex:
     start_ts = pd.Timestamp(start or DEFAULT_START)
     end_ts = pd.Timestamp(end or date.today())
     if end_ts <= start_ts:
         end_ts = start_ts + pd.Timedelta(days=365)
-    return pd.bdate_range(start_ts, end_ts)
+    return pd.date_range(start_ts, end_ts, freq="D") if continuous else pd.bdate_range(start_ts, end_ts)
 
 
 def _asset_seed(asset: str) -> int:
@@ -140,10 +142,11 @@ def generate_sample_market_data(asset: str, start: Optional[date], end: Optional
     reproducible examples and graceful fallback when `data_mode='auto'` is selected.
     """
     rng = np.random.default_rng(_asset_seed(asset))
-    dates = _date_range(start, end)
+    continuous = asset.upper() in {"BTC-USD", "ETH-USD"}
+    dates = _date_range(start, end, continuous=continuous)
     n = len(dates)
     if n < 180:
-        dates = pd.bdate_range(dates.min(), periods=360)
+        dates = pd.date_range(dates.min(), periods=360, freq="D") if continuous else pd.bdate_range(dates.min(), periods=360)
         n = len(dates)
 
     transition = np.array(

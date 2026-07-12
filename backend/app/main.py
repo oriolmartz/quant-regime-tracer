@@ -20,6 +20,7 @@ from app.services.data_loader import (
     parse_uploaded_csv,
     resolve_window,
 )
+from app.services.annualization import infer_annualization_profile
 from app.services.features import engineer_features
 from app.services.model_evaluation import temporal_hmm_evaluation
 from app.services.regime_model import run_regime_model
@@ -329,7 +330,8 @@ def _build_report_markdown(
             "footer": "Este informe se genera para revisión técnica de riesgo. No es asesoramiento financiero y no proporciona instrucciones de compra/venta.",
             "custom": "personalizado", "observations": "observaciones", "largest_gap": "gap máximo",
             "traceback": "Trazabilidad de régimen", "posterior": "MAP posterior gamma", "entropy": "Entropía posterior",
-            "transition_prior": "Prior de transición", "baseline_agreement": "Acuerdo con baselines"
+            "transition_prior": "Prior de transición", "baseline_agreement": "Acuerdo con baselines",
+            "annualization": "Factor de anualización"
         }
         title = f"# Informe QuantRegimeTracer — {asset}"
     else:
@@ -342,7 +344,8 @@ def _build_report_markdown(
             "footer": "This report is generated for technical risk review. It is not financial advice and does not provide buy/sell instructions.",
             "custom": "custom", "observations": "observations", "largest_gap": "largest gap",
             "traceback": "Regime Traceback", "posterior": "MAP posterior gamma", "entropy": "Posterior entropy",
-            "transition_prior": "Transition prior", "baseline_agreement": "Baseline agreement"
+            "transition_prior": "Transition prior", "baseline_agreement": "Baseline agreement",
+            "annualization": "Annualization factor"
         }
         title = f"# QuantRegimeTracer Report — {asset}"
 
@@ -354,6 +357,7 @@ def _build_report_markdown(
         f"**{labels['interval']}:** {interval or labels['custom']}",
         f"**{labels['window']}:** {result.diagnostics.get('data_start')} → {result.diagnostics.get('data_end')}",
         f"**{labels['model']}:** {result.diagnostics.get('model_type')} · {result.diagnostics.get('n_regimes')} regimes",
+        f"**{labels['annualization']}:** {risk_metrics.get('annualization_factor', 252):g} periods/year · {risk_metrics.get('annualization_calendar', 'inferred calendar')}",
         "",
         f"## {labels['current']}",
         f"- {labels['label']}: **{current.get('label')}**",
@@ -428,6 +432,7 @@ def _build_source_report(
     requested_end: str | None = None,
 ) -> dict[str, Any]:
     dates = pd.to_datetime(frame.get("date"), errors="coerce") if "date" in frame else pd.Series(dtype="datetime64[ns]")
+    annualization_profile = infer_annualization_profile(dates)
     return {
         "mode": data_mode or "custom",
         "source": source,
@@ -439,6 +444,9 @@ def _build_source_report(
         "actual_start": dates.min().strftime("%Y-%m-%d") if len(dates.dropna()) else None,
         "actual_end": dates.max().strftime("%Y-%m-%d") if len(dates.dropna()) else None,
         "observations": int(len(frame)),
+        "annualization_factor": annualization_profile.get("periods_per_year"),
+        "annualization_calendar": annualization_profile.get("calendar_type"),
+        "annualization_method": annualization_profile.get("method"),
         "policy": (
             "real data required" if data_mode == "real" else
             "real data first, sample fallback allowed" if data_mode == "auto" else
@@ -454,6 +462,8 @@ def _build_response(asset: str, source: str, frame: pd.DataFrame, warnings: list
 
     features, feature_cols, feature_warnings = engineer_features(frame)
     warnings.extend(feature_warnings)
+    annualization_profile = dict(features.attrs.get("annualization_profile", {}))
+    annualization_factor = float(features.attrs.get("annualization_factor", annualization_profile.get("periods_per_year", 252.0)))
 
     model_evaluation = temporal_hmm_evaluation(features, feature_cols, selected_regimes=n_regimes)
     if model_evaluation.get("status") in {"unavailable", "failed", "insufficient_window"}:
@@ -467,13 +477,16 @@ def _build_response(asset: str, source: str, frame: pd.DataFrame, warnings: list
     if assignment_stability.get("status") not in {None, "ok"}:
         warnings.append(str(assignment_stability.get("message", "Multi-seed HMM stability review was not available.")))
 
-    result = run_regime_model(features, feature_cols, n_regimes=n_regimes)
+    result = run_regime_model(features, feature_cols, n_regimes=n_regimes, annualization_factor=annualization_factor)
     warnings.extend(result.warnings)
     out = result.frame
 
     risk_metrics = {
         "latest_close": clean_number(out["close"].iloc[-1]),
-        "annualized_volatility": clean_number(annualized_volatility(out["log_return"])),
+        "annualized_volatility": clean_number(annualized_volatility(out["log_return"], annualization_factor)),
+        "annualization_factor": clean_number(annualization_factor),
+        "annualization_calendar": annualization_profile.get("calendar_type"),
+        "annualization_method": annualization_profile.get("method"),
         "max_drawdown": clean_number(max_drawdown(out["close"])),
         "latest_drawdown": clean_number(out["drawdown"].iloc[-1]),
         "latest_momentum_20": clean_number(out["momentum_20"].iloc[-1]),
@@ -482,7 +495,7 @@ def _build_response(asset: str, source: str, frame: pd.DataFrame, warnings: list
     }
 
     segments = regime_segments(out)
-    baseline = baseline_volatility_regimes(out, n_regimes)
+    baseline = baseline_volatility_regimes(out, n_regimes, annualization_factor=annualization_factor)
     stability = transition_stability(out, n_regimes)
     model_card = build_model_card(result.diagnostics["model_type"], n_regimes, feature_cols)
     result.current_regime = _augment_current_regime(result.current_regime, baseline, model_evaluation, data_quality, result.diagnostics)
@@ -658,6 +671,8 @@ def compare_assets(request: CompareRequest) -> CompareResponse:
                 "stay_probability": float(response.current_regime.get("stay_probability", 0.0)),
                 "latest_drawdown": float(response.risk_metrics.get("latest_drawdown", 0.0)),
                 "annualized_volatility": float(response.risk_metrics.get("annualized_volatility", 0.0)),
+                "annualization_factor": float(response.risk_metrics.get("annualization_factor", 252.0)),
+                "annualization_calendar": str(response.risk_metrics.get("annualization_calendar", "inferred_calendar")),
                 "baseline_agreement": float(response.baseline.get("stress_agreement", 0.0)),
                 "baseline_verdict": str(response.baseline.get("verdict", "—")),
                 "data_quality_status": str(response.data_quality.get("status", "—")),

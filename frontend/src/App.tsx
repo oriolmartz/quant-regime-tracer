@@ -80,7 +80,7 @@ export default function App() {
   const [language, setLanguage] = useState<LanguageCode>(() => (localStorage.getItem('quantregimetracer_language') as LanguageCode) || 'en')
   const t = useMemo(() => getTranslator(language), [language])
   const [assets, setAssets] = useState(['SPY', 'QQQ', 'BTC-USD', 'ETH-USD', 'AAPL', 'MSFT', 'NVDA', 'META', 'IWM', 'DIA', 'GLD', 'TLT'])
-  const [windows, setWindows] = useState(['6M', '1Y', '3Y', '5Y', 'MAX'])
+  const [windows, setWindows] = useState(['6M', '1Y', '2Y', '3Y', '5Y', 'MAX'])
   const [asset, setAsset] = useState('SPY')
   const [dataMode, setDataMode] = useState<DataMode>('real')
   const [forceRefresh, setForceRefresh] = useState(false)
@@ -199,8 +199,6 @@ export default function App() {
     fetchHealth().then(setApiHealth).catch(() => {})
     fetchCaseStudy().then(setCaseStudy).catch(() => {})
     fetchProjectCard().then(setProjectCard).catch(() => {})
-    compareAssetSet({ assets: selectedCompareAssets, interval, n_regimes: Number(nRegimes), data_mode: 'auto', language }).then(setComparison).catch(() => {})
-    runAnalysis('SPY')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -283,9 +281,9 @@ export default function App() {
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-stone-200/70">{t('currentRegime')}</p>
-                <h2 className="mt-2 text-2xl font-semibold text-white">{translateRegimeLabel(result?.current_regime?.label, language) || 'Loading…'}</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-white">{result ? translateRegimeLabel(result.current_regime?.label, language) : t('awaitingAnalysis')}</h2>
               </div>
-              <span className="rounded-full border border-[#BFD8D3]/25 bg-[#2A6F68]/20 px-3 py-1 text-xs font-semibold text-[#D7E8E4]">{riskBand} {t('risk')}</span>
+              <span className="rounded-full border border-[#BFD8D3]/25 bg-[#2A6F68]/20 px-3 py-1 text-xs font-semibold text-[#D7E8E4]">{result ? `${riskBand} ${t('risk')}` : t('ready')}</span>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <HeroStat label={t('evidenceStrength')} value={pct(result?.current_regime?.evidence_strength as number | undefined)} />
@@ -299,42 +297,37 @@ export default function App() {
 
       <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
         <section className="card mb-6 p-4">
-          <div className="grid gap-4 md:grid-cols-[1fr_.7fr_.8fr_.7fr_auto] md:items-end">
-            <div>
+          <div className="grid gap-x-4 gap-y-2 md:grid-cols-[1fr_.7fr_.8fr_.7fr_auto] md:items-end">
+            <div className="md:col-start-1 md:row-start-1">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-subdued">{t('asset')}</label>
               <select className="input h-11 w-full" value={asset} onChange={(e) => setAsset(e.target.value)}>
                 {assets.map((a) => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
-            <div>
+            <div className="md:col-start-2 md:row-start-1">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-subdued">{t('window')}</label>
               <select className="input h-11 w-full" value={interval} onChange={(e) => setInterval(e.target.value)}>
                 {windows.map((w) => <option key={w} value={w}>{w}</option>)}
               </select>
             </div>
-            <div className="flex flex-col">
+            <div className="flex flex-col md:col-start-3 md:row-start-1">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-subdued">{t('customStartDate')}</label>
               <input className="input h-11 w-full" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
-            <div>
+            <p className="pl-3 text-left text-[11px] leading-4 text-subdued md:col-start-3 md:row-start-2 md:justify-self-start">
+              {t('customStartHelp')}
+            </p>
+            <div className="md:col-start-4 md:row-start-1">
               <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.14em] text-subdued">{t('regimes')}</label>
               <select className="input h-11 w-full min-w-[105px]" value={nRegimes} onChange={(e) => setNRegimes(Number(e.target.value))}>
                 {[2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
-            <button disabled={loading} onClick={() => runAnalysis()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:bg-[#0E172B] disabled:cursor-not-allowed disabled:opacity-60">
+            <button disabled={loading} onClick={() => runAnalysis()} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:bg-[#0E172B] disabled:cursor-not-allowed disabled:opacity-60 md:col-start-5 md:row-start-1">
               {loading ? <RefreshCw className="animate-spin" size={16} /> : <Database size={16} />}
               {loading ? t('analyzing') : t('analyze')}
             </button>
           </div>
-          <div className="mt-2 hidden gap-4 md:grid md:grid-cols-[1fr_.7fr_.8fr_.7fr_auto]">
-            <p className="w-full pl-3 text-left text-[11px] leading-4 text-subdued md:col-start-3">
-              {t('customStartHelp')}
-            </p>
-          </div>
-          <p className="mt-2 pl-3 text-left text-[11px] leading-4 text-subdued md:hidden">
-            {t('customStartHelp')}
-          </p>
           <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto_auto] md:items-center">
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex h-11 items-center gap-3 rounded-xl border border-line bg-ivory px-4 text-sm font-medium text-muted">
@@ -389,6 +382,16 @@ export default function App() {
             </button>
           ))}
         </div>
+
+        {!result && !['compare', 'case'].includes(activeTab) && (
+          <section className="card mb-10 flex min-h-[220px] flex-col items-center justify-center px-6 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-soft text-brand">
+              <Database size={22} />
+            </span>
+            <h2 className="mt-4 text-xl font-semibold text-ink">{t('analysisPromptTitle')}</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted">{t('analysisPromptBody')}</p>
+          </section>
+        )}
 
         {result && activeTab === 'dashboard' && (
           <>

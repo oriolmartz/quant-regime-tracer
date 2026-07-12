@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from app.services.annualization import annualization_factor_from_frame, infer_annualization_profile
 from app.services.risk_metrics import max_drawdown, transition_matrix
 
 
@@ -103,9 +104,10 @@ def _stress_agreement_report(df: pd.DataFrame, stress_flag: pd.Series, name: str
     }
 
 
-def _ewma_volatility_baseline(frame: pd.DataFrame) -> dict[str, Any]:
+def _ewma_volatility_baseline(frame: pd.DataFrame, annualization_factor: float | None = None) -> dict[str, Any]:
     df = frame.copy()
-    ewma_vol = df["log_return"].ewm(span=30, adjust=False).std().bfill().fillna(0) * np.sqrt(252)
+    periods_per_year = float(annualization_factor or annualization_factor_from_frame(frame))
+    ewma_vol = df["log_return"].ewm(span=30, adjust=False).std().bfill().fillna(0) * np.sqrt(periods_per_year)
     threshold = float(ewma_vol.quantile(0.80)) if len(ewma_vol) else 0.0
     stress = ewma_vol >= threshold
     latest_label = "EWMA volatility stress" if bool(stress.iloc[-1]) else "EWMA non-stress"
@@ -137,7 +139,11 @@ def _drawdown_stress_baseline(frame: pd.DataFrame) -> dict[str, Any]:
     return report
 
 
-def baseline_volatility_regimes(frame: pd.DataFrame, n_regimes: int) -> dict[str, Any]:
+def baseline_volatility_regimes(
+    frame: pd.DataFrame,
+    n_regimes: int,
+    annualization_factor: float | None = None,
+) -> dict[str, Any]:
     """Transparent baseline suite for skeptical model review.
 
     The primary baseline buckets rolling volatility into quantile regimes. Two additional
@@ -176,7 +182,7 @@ def baseline_volatility_regimes(frame: pd.DataFrame, n_regimes: int) -> dict[str
             "disagreement_rate": disagreement_rate,
             "verdict": _baseline_verdict(stress_agreement),
         },
-        _ewma_volatility_baseline(frame),
+        _ewma_volatility_baseline(frame, annualization_factor=annualization_factor),
         _drawdown_stress_baseline(frame),
     ]
     suite_mean_agreement = float(np.mean([b["stress_agreement"] for b in baselines])) if baselines else 0.0
@@ -253,6 +259,8 @@ def data_quality_report(frame: pd.DataFrame, source: str, cache_hit: bool = Fals
     if cache_hit:
         notes.append("Loaded from local cache to avoid repeated live-provider calls.")
 
+    annualization_profile = infer_annualization_profile(frame["date"]) if "date" in frame.columns else {}
+
     return {
         "status": status,
         "source": source,
@@ -265,6 +273,9 @@ def data_quality_report(frame: pd.DataFrame, source: str, cache_hit: bool = Fals
         "duplicate_dates": duplicate_dates,
         "missing_close": missing_close,
         "missing_volume": missing_volume,
+        "annualization_factor": annualization_profile.get("periods_per_year"),
+        "annualization_calendar": annualization_profile.get("calendar_type"),
+        "annualization_method": annualization_profile.get("method"),
         "notes": notes,
     }
 

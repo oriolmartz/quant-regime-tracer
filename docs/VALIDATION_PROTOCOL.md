@@ -197,3 +197,8 @@ reports/real_data_validation.json
 This bundle is not a claim of trading performance. It is evidence that the real-data ingestion, HMM inference, model-selection diagnostics, baseline comparison and stability review execute on actual market data.
 
 The bundle should be reviewed with the same guardrails as the product UI: selected-vs-recommended `k` mismatches, overfit-risk verdicts and moderate stability are first-class review signals, not errors to hide.
+
+
+## Calendar-aware annualization
+
+Validation uses the same timestamp-inferred periods-per-year factor as feature engineering. Exchange calendars are stabilized near 252 observations/year, seven-day calendars near 365, and other/custom cadences use their empirical observation frequency. This prevents crypto or custom calendars from being evaluated with an equity-only annualization convention.

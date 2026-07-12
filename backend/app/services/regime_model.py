@@ -12,6 +12,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 from app.services.model_evaluation import normalized_entropy
+from app.services.annualization import annualization_factor_from_frame
 from app.services.risk_metrics import expected_persistence_days, transition_matrix
 
 
@@ -145,8 +146,16 @@ def _risk_score(stress_transition: float, vol: float, drawdown: float, label: st
     return float(min(score, 1.0))
 
 
-def run_regime_model(df: pd.DataFrame, feature_cols: list[str], n_regimes: int = 3) -> RegimeResult:
+def run_regime_model(
+    df: pd.DataFrame,
+    feature_cols: list[str],
+    n_regimes: int = 3,
+    annualization_factor: float | None = None,
+) -> RegimeResult:
     warnings: list[str] = []
+    periods_per_year = float(annualization_factor or annualization_factor_from_frame(df))
+    annualization_profile = dict(df.attrs.get("annualization_profile", {}))
+    annualization_profile["periods_per_year"] = periods_per_year
     if len(df) < max(180, n_regimes * 60):
         warnings.append("Limited data length for HMM; regime inference may be fragile.")
 
@@ -184,7 +193,7 @@ def run_regime_model(df: pd.DataFrame, feature_cols: list[str], n_regimes: int =
                 "regime": int(state),
                 "label": labels[state],
                 "observations": int(len(part)),
-                "mean_return": float(part["log_return"].mean() * 252) if len(part) else 0.0,
+                "mean_return": float(part["log_return"].mean() * periods_per_year) if len(part) else 0.0,
                 "annualized_volatility": float(part["rolling_volatility"].mean()) if len(part) else 0.0,
                 "mean_drawdown": float(part["drawdown"].mean()) if len(part) else 0.0,
                 "mean_momentum": float(part["momentum_20"].mean()) if len(part) else 0.0,
@@ -242,10 +251,13 @@ def run_regime_model(df: pd.DataFrame, feature_cols: list[str], n_regimes: int =
         "posterior_entropy_latest": posterior_entropy,
         "near_deterministic_posterior_share": near_deterministic_share,
         "assignment_style": assignment_style,
+        "annualization_factor": periods_per_year,
+        "annualization_profile": annualization_profile,
         "notes": [
             "Regime labels are derived from inferred state statistics, not manually assigned classes.",
             "Transition probabilities are empirical estimates over the inferred regime path.",
             "Posterior entropy is surfaced so near-deterministic assignments are not oversold as calibrated certainty.",
+            f"Annualized return and volatility metrics use {periods_per_year:g} observed periods per year, inferred from the supplied timestamps.",
         ],
     }
 

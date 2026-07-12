@@ -36,7 +36,7 @@ QuantRegimeTracer is real-market-data first. The API default is `data_mode='real
 | `asset` | string | `SPY` | Ticker symbol. |
 | `start` | date/null | null | Explicit start override. |
 | `end` | date/null | null | Explicit end override. |
-| `interval` | string | `5Y` | `6M`, `1Y`, `3Y`, `5Y`, `MAX`. |
+| `interval` | string | `5Y` | `6M`, `1Y`, `2Y`, `3Y`, `5Y`, `MAX`. |
 | `n_regimes` | int | `3` | 2 to 5. |
 | `data_mode` | string | `real` | `real`, `auto`, `sample`. |
 | `force_refresh` | bool | false | Bypass cache in real/auto mode. |
@@ -156,3 +156,8 @@ When `data_mode='real'` and neither cache nor yfinance can provide enough observ
   }
 }
 ```
+
+
+## Calendar-aware annualization
+
+The analysis response exposes `risk_metrics.annualization_factor`, `risk_metrics.annualization_calendar` and `risk_metrics.annualization_method`. These values are inferred from the actual timestamps and are used consistently across annualized features, regime statistics, baselines and exported reports.

@@ -16,6 +16,13 @@ def test_resolve_window_presets_are_stable() -> None:
     assert 360 <= (end - start).days <= 366
 
 
+
+def test_resolve_two_year_window_is_available() -> None:
+    start, end, interval = resolve_window(None, date(2026, 6, 30), "2Y")
+    assert interval == "2Y"
+    assert 725 <= (end - start).days <= 731
+
+
 def test_sample_data_is_deterministic_for_asset() -> None:
     first = generate_sample_market_data("SPY", date(2024, 1, 1), date(2025, 1, 1))
     second = generate_sample_market_data("SPY", date(2024, 1, 1), date(2025, 1, 1))

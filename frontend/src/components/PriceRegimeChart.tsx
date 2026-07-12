@@ -44,7 +44,7 @@ function CustomTooltip({ active, payload, label, segments }: { active?: boolean;
     <div className="rounded-2xl border border-line bg-white/95 p-4 text-xs shadow-premium backdrop-blur">
       <div className="mb-2 font-semibold text-ink">{label}</div>
       <div className="space-y-1 text-muted">
-        <div><span className="font-medium text-ink">Close:</span> {Number(point.close ?? point.price ?? 0).toFixed(2)}</div>
+        <div><span className="font-medium text-ink">Adjusted close:</span>{' '}{Number(point.close ?? point.price ?? 0).toFixed(2)}</div>
         <div><span className="font-medium text-ink">State:</span> {point.regime} · {point.regime_label}</div>
         <div><span className="font-medium text-ink">MAP posterior γ:</span> {pct(Number(point.regime_probability ?? 0))}</div>
         <div><span className="font-medium text-ink">Entropy H(γ):</span> {pct(Number(point.posterior_entropy ?? 0))}</div>
@@ -122,7 +122,15 @@ export default function PriceRegimeChart({
             {transitions.map((date) => (
               <ReferenceLine key={date} x={date} stroke="#14213D" strokeDasharray="3 5" strokeOpacity={0.35} />
             ))}
-            <Line type="monotone" dataKey="close" stroke="#14213D" strokeWidth={2.4} dot={false} name="Close" isAnimationActive={false} />
+            <Line
+              type="monotone"
+              dataKey="close"
+              stroke="#14213D"
+              strokeWidth={2.4}
+              dot={false}
+              name="Adjusted close"
+              isAnimationActive={false}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

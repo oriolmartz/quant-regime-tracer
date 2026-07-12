@@ -171,7 +171,7 @@ export default function ComparePanel({ assets, selectedAssets, setSelectedAssets
                       <td className="px-5 py-4 text-muted">{pct(row.stress_transition_probability)}</td>
                       <td className="px-5 py-4 text-muted">{pct(row.latest_drawdown)}</td>
                       <td className="px-5 py-4 text-muted">{pct(row.baseline_agreement)} <span className="text-xs text-subdued">{row.baseline_verdict}</span></td>
-                      <td className="px-5 py-4 text-muted">{row.data_quality_status}<div className="text-xs text-subdued">{friendlySource(row.source, lang)}</div></td>
+                      <td className="px-5 py-4 text-muted">{row.data_quality_status}<div className="text-xs text-subdued">{friendlySource(row.source, lang)}</div><div className="text-xs text-subdued">{row.annualization_factor ?? '—'}/yr · {String(row.annualization_calendar || 'inferred').replace(/_/g, ' ')}</div></td>
                     </tr>
                   ))}
                 </tbody>

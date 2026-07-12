@@ -31,6 +31,8 @@ export default function DataQualityPanel({ quality }) {
         <div className="rounded-2xl bg-ivory p-4"><span className="text-xs text-subdued">Observations</span><strong className="mt-1 block text-ink">{quality.observations}</strong></div>
         <div className="rounded-2xl bg-ivory p-4"><span className="text-xs text-subdued">Window</span><strong className="mt-1 block text-ink">{quality.date_start} → {quality.date_end}</strong></div>
         <div className="rounded-2xl bg-ivory p-4"><span className="text-xs text-subdued">Largest gap</span><strong className="mt-1 block text-ink">{quality.largest_gap_days} days</strong></div>
+        <div className="rounded-2xl bg-ivory p-4"><span className="text-xs text-subdued">Annualization</span><strong className="mt-1 block text-ink">{quality.annualization_factor ?? '—'} periods/year</strong></div>
+        <div className="rounded-2xl bg-ivory p-4"><span className="text-xs text-subdued">Observed calendar</span><strong className="mt-1 block text-ink">{String(quality.annualization_calendar || '—').replace(/_/g, ' ')}</strong></div>
       </div>
 
       {(quality.notes || []).length > 0 && (

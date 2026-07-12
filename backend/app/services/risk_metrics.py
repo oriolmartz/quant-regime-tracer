@@ -27,5 +27,5 @@ def max_drawdown(close: pd.Series) -> float:
     return float(drawdown.min())
 
 
-def annualized_volatility(log_returns: pd.Series) -> float:
-    return float(log_returns.std() * np.sqrt(252))
+def annualized_volatility(log_returns: pd.Series, periods_per_year: float = 252.0) -> float:
+    return float(log_returns.std() * np.sqrt(float(periods_per_year)))

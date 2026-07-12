@@ -12,7 +12,7 @@ class AnalyzeRequest(BaseModel):
     end: Optional[date] = Field(default=None)
     interval: Optional[str] = Field(
         default="5Y",
-        description="Preset analysis window when explicit start/end are not provided. Supported: 6M, 1Y, 3Y, 5Y, MAX.",
+        description="Preset analysis window when explicit start/end are not provided. Supported: 6M, 1Y, 2Y, 3Y, 5Y, MAX.",
     )
     n_regimes: int = Field(default=3, ge=2, le=5)
     data_mode: Literal['real', 'auto', 'sample'] = Field(
@@ -107,6 +107,8 @@ class CompareAssetSummary(BaseModel):
     stay_probability: float
     latest_drawdown: float
     annualized_volatility: float
+    annualization_factor: float
+    annualization_calendar: str
     baseline_agreement: float
     baseline_verdict: str
     data_quality_status: str

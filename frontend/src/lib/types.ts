@@ -57,6 +57,9 @@ export interface DataQualityReport {
   duplicate_dates?: number
   missing_close?: number
   missing_volume?: number | null
+  annualization_factor?: number | null
+  annualization_calendar?: string | null
+  annualization_method?: string | null
   notes?: string[]
 }
 
@@ -109,6 +112,8 @@ export interface RankedAssetSummary {
   stay_probability?: number
   latest_drawdown?: number
   annualized_volatility?: number
+  annualization_factor?: number
+  annualization_calendar?: string
   baseline_agreement?: number
   baseline_verdict?: string
   data_quality_status?: string
@@ -134,6 +139,9 @@ export interface SourceReport {
   actual_start?: string | null
   actual_end?: string | null
   observations?: number
+  annualization_factor?: number | null
+  annualization_calendar?: string | null
+  annualization_method?: string | null
   policy?: string
 }
 
