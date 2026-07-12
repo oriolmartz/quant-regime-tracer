@@ -103,7 +103,7 @@ def _cache_glob(asset: str) -> list[Path]:
     return sorted(CACHE_DIR.glob(f"{_safe_asset_name(asset)}_*.csv"), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
-def _read_cached_frame(path: Path, start: date, end: date) -> pd.DataFrame:
+def _read_cache_file(path: Path) -> pd.DataFrame:
     cached = pd.read_csv(path)
     cached["date"] = pd.to_datetime(cached["date"], errors="coerce")
     cached["close"] = pd.to_numeric(cached["close"], errors="coerce")
@@ -111,9 +111,28 @@ def _read_cached_frame(path: Path, start: date, end: date) -> pd.DataFrame:
         cached["volume"] = pd.to_numeric(cached["volume"], errors="coerce")
     else:
         cached["volume"] = np.nan
-    cached = cached.dropna(subset=["date", "close"]).sort_values("date").drop_duplicates("date")
-    mask = (cached["date"] >= pd.Timestamp(start)) & (cached["date"] <= pd.Timestamp(end))
-    return cached.loc[mask, ["date", "close", "volume"]].copy()
+    return cached.dropna(subset=["date", "close"]).sort_values("date").drop_duplicates("date")
+
+
+def _cache_edge_tolerance_days(frame: pd.DataFrame) -> int:
+    """Allow weekends/holidays without accepting a materially shorter cached window."""
+    gaps = frame["date"].diff().dropna().dt.total_seconds().div(86_400)
+    median_gap = float(gaps.median()) if not gaps.empty else 1.0
+    return max(7, min(31, int(np.ceil(median_gap * 3))))
+
+
+def _cache_covers_request(frame: pd.DataFrame, start: date, end: date) -> bool:
+    if frame.empty:
+        return False
+    tolerance = pd.Timedelta(days=_cache_edge_tolerance_days(frame))
+    first = frame["date"].min()
+    last = frame["date"].max()
+    return first <= pd.Timestamp(start) + tolerance and last >= pd.Timestamp(end) - tolerance
+
+
+def _slice_cached_frame(frame: pd.DataFrame, start: date, end: date) -> pd.DataFrame:
+    mask = (frame["date"] >= pd.Timestamp(start)) & (frame["date"] <= pd.Timestamp(end))
+    return frame.loc[mask, ["date", "close", "volume"]].copy()
 
 
 def _normalize_downloaded_frame(raw: pd.DataFrame) -> pd.DataFrame:
@@ -199,21 +218,37 @@ def _load_from_cache(asset: str, start: date, end: date) -> Optional[LoadedData]
     exact_path = _cache_path(asset, start, end)
     candidates = [exact_path] if exact_path.exists() else []
     candidates.extend([p for p in _cache_glob(asset) if p != exact_path])
+
+    eligible: list[tuple[int, float, Path, pd.DataFrame]] = []
+    requested_span = max(1, (end - start).days)
     for path in candidates:
         try:
-            cached = _read_cached_frame(path, start, end)
+            full_frame = _read_cache_file(path)
         except Exception:
             continue
-        if len(cached) >= 180:
-            return LoadedData(
-                frame=cached,
-                source="cache:yfinance",
-                cache_hit=True,
-                provider="yfinance",
-                requested_start=start,
-                requested_end=end,
-            )
-    return None
+        if not _cache_covers_request(full_frame, start, end):
+            continue
+        cached = _slice_cached_frame(full_frame, start, end)
+        if len(cached) < 180:
+            continue
+
+        covered_span = max(1, (full_frame["date"].max() - full_frame["date"].min()).days)
+        excess_span = max(0, covered_span - requested_span)
+        eligible.append((excess_span, -path.stat().st_mtime, path, cached))
+
+    if not eligible:
+        return None
+
+    # Prefer the narrowest cache that fully covers the requested dates; use recency as tie-breaker.
+    _, _, _, cached = min(eligible, key=lambda item: (item[0], item[1]))
+    return LoadedData(
+        frame=cached,
+        source="cache:yfinance",
+        cache_hit=True,
+        provider="yfinance",
+        requested_start=start,
+        requested_end=end,
+    )
 
 
 def _download_yfinance(asset: str, start: date, end: date) -> LoadedData:
